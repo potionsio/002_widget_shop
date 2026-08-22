@@ -8,6 +8,35 @@ defmodule WidgetShop.Inventory do
   alias WidgetShop.Inventory.Widget
   alias WidgetShop.Repo
 
+  @discount Decimal.new("0.90")
+
+  def stale_count do
+    Repo.aggregate(stale_query(), :count)
+  end
+
+  def reprice_stale do
+    repriced =
+      stale_query()
+      |> Repo.all()
+      |> Enum.map(fn widget ->
+        widget
+        |> Ecto.Changeset.change(
+          price: widget.price |> Decimal.mult(@discount) |> Decimal.round(2),
+          price_reduced: true
+        )
+        |> Repo.update!()
+      end)
+
+    IO.puts("Reduced #{length(repriced)} stale widgets")
+  end
+
+  defp stale_query do
+    cutoff = Date.add(Date.utc_today(), -30)
+
+    from w in Widget,
+      where: w.listed_on <= ^cutoff and w.price_reduced == false
+  end
+
   @doc """
   Returns all widgets, newest listings first.
   """
