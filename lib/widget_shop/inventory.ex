@@ -15,19 +15,18 @@ defmodule WidgetShop.Inventory do
   end
 
   def reprice_stale do
-    repriced =
+    {repriced_count, _} =
       stale_query()
-      |> Repo.all()
-      |> Enum.map(fn widget ->
-        widget
-        |> Ecto.Changeset.change(
-          price: widget.price |> Decimal.mult(@discount) |> Decimal.round(2),
-          price_reduced: true
-        )
-        |> Repo.update!()
-      end)
+      |> update([w],
+        set: [
+          price: fragment("round(? * ?, 2)", w.price, ^@discount),
+          price_reduced: true,
+          updated_at: ^DateTime.utc_now()
+        ]
+      )
+      |> Repo.update_all([])
 
-    IO.puts("Reduced #{length(repriced)} stale widgets")
+    IO.puts("Reduced #{repriced_count} stale widgets")
   end
 
   defp stale_query do
